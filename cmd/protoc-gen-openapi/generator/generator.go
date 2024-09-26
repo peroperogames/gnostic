@@ -44,6 +44,7 @@ type Configuration struct {
 	CircularDepth   *int
 	DefaultResponse *bool
 	OutputMode      *string
+	Wrap            *bool
 }
 
 const (
@@ -554,6 +555,11 @@ func (g *OpenAPIv3Generator) buildOperationV3(
 
 	// Create the response.
 	name, content := g.reflect.responseContentForMessage(outputMessage.Desc)
+	if *g.conf.Wrap {
+
+		name, content = g.reflect.responseWarpContentForMessage(outputMessage.Desc)
+	}
+
 	responses := &v3.Responses{
 		ResponseOrReference: []*v3.NamedResponseOrReference{
 			{

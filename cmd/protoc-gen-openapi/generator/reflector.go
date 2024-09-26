@@ -237,3 +237,62 @@ func (r *OpenAPIv3Reflector) schemaOrReferenceForField(field protoreflect.FieldD
 
 	return kindSchema
 }
+
+// Warp the response in a JSON object with the key "data".
+// json = {"data": { content },msg: "success",code: 200,reason: "OK"}
+func (r *OpenAPIv3Reflector) responseWarpContentForMessage(desc protoreflect.MessageDescriptor) (string, *v3.MediaTypes) {
+	typeName := r.fullMessageTypeName(desc)
+
+	if typeName == ".google.protobuf.Empty" {
+		return "200", &v3.MediaTypes{}
+	}
+
+	if typeName == ".google.api.HttpBody" {
+		return "200", wk.NewGoogleApiHttpBodyMediaType()
+	}
+	body := r.schemaOrReferenceForMessage(desc)
+	// Warp the response in a JSON object with the key "data".
+	//{
+	//    "type": "object",
+	//    "properties": {
+	//        "data": {
+	//            "type": "object",
+	//            "properties": {},
+	//        },
+	//        "code": {
+	//            "type": "integer"
+	//        },
+	//        "msg": {
+	//            "type": "string"
+	//        }
+	//    },
+	//}
+	p := &v3.Properties{}
+	p.AdditionalProperties = make([]*v3.NamedSchemaOrReference, 4)
+	p.AdditionalProperties[0] = &v3.NamedSchemaOrReference{
+		Name:  "data",
+		Value: body,
+	}
+	p.AdditionalProperties[1] = &v3.NamedSchemaOrReference{
+		Name:  "code",
+		Value: wk.NewIntegerSchema("int32"),
+	}
+	p.AdditionalProperties[2] = &v3.NamedSchemaOrReference{
+		Name:  "msg",
+		Value: wk.NewStringSchema(),
+	}
+	p.AdditionalProperties[3] = &v3.NamedSchemaOrReference{
+		Name:  "reason",
+		Value: wk.NewStringSchema(),
+	}
+	body = &v3.SchemaOrReference{
+		Oneof: &v3.SchemaOrReference_Schema{
+			Schema: &v3.Schema{
+				Type:       "object",
+				Properties: p,
+			},
+		},
+	}
+
+	return "200", wk.NewApplicationJsonMediaType(body)
+}
