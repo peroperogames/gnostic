@@ -17,10 +17,10 @@ package main
 
 import (
 	"flag"
+	"github.com/peroperogames/gnostic/cmd/protoc-gen-openapi/generator"
 	"path/filepath"
 	"strings"
 
-	"github.com/google/gnostic/cmd/protoc-gen-openapi/generator"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/types/pluginpb"
 )
