@@ -16,6 +16,9 @@
 package wellknown
 
 import (
+	"fmt"
+	"strings"
+
 	v3 "github.com/peroperogames/gnostic/openapiv3"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -50,19 +53,104 @@ func NewNumberSchema(format string) *v3.SchemaOrReference {
 			Schema: &v3.Schema{Type: "number", Format: format}}}
 }
 
+// getEnumValueComment retrieves the leading comment for an enum value
+// from the source location information, if available
+func getEnumValueComment(enumValue protoreflect.EnumValueDescriptor) string {
+	// Get the source location for this enum value
+	sourceLocs := enumValue.ParentFile().SourceLocations()
+	loc := sourceLocs.ByDescriptor(enumValue)
+	if loc.LeadingComments != "" {
+		// Clean up the comment: trim whitespace and remove leading slashes
+		comment := strings.TrimSpace(loc.LeadingComments)
+		return comment
+	}
+	// Return empty string if no comment found
+	return ""
+}
+
 func NewEnumSchema(enum_type *string, field protoreflect.FieldDescriptor) *v3.SchemaOrReference {
 	schema := &v3.Schema{Format: "enum"}
+
+	enumValues := field.Enum().Values()
+	enumLen := enumValues.Len()
+
+	// Build x-enum-varnames list (enum value names) and descriptions
+	varnames := make([]string, 0, enumLen)
+	descriptions := make([]string, 0, enumLen)
+	for i := 0; i < enumLen; i++ {
+		enumValue := enumValues.Get(i)
+		name := string(enumValue.Name())
+		varnames = append(varnames, name)
+
+		// Try to get comment from source location, fallback to name
+		comment := getEnumValueComment(enumValue)
+		if comment != "" {
+			descriptions = append(descriptions, comment)
+		} else {
+			descriptions = append(descriptions, name)
+		}
+	}
+
 	if enum_type != nil && *enum_type == "string" {
 		schema.Type = "string"
-		schema.Enum = make([]*v3.Any, 0, field.Enum().Values().Len())
-		for i := 0; i < field.Enum().Values().Len(); i++ {
+		schema.Enum = make([]*v3.Any, 0, enumLen)
+		for i := 0; i < enumLen; i++ {
 			schema.Enum = append(schema.Enum, &v3.Any{
-				Yaml: string(field.Enum().Values().Get(i).Name()),
+				Yaml: string(enumValues.Get(i).Name()),
 			})
 		}
 	} else {
 		schema.Type = "integer"
+		// Add enum values (numbers) for integer type
+		schema.Enum = make([]*v3.Any, 0, enumLen)
+		for i := 0; i < enumLen; i++ {
+			schema.Enum = append(schema.Enum, &v3.Any{
+				Yaml: fmt.Sprintf("%d", enumValues.Get(i).Number()),
+			})
+		}
 	}
+
+	// Add x-enum-varnames extension (for openapi-generator and other tools)
+	varnamesYaml := "- " + strings.Join(varnames, "\n- ")
+	schema.SpecificationExtension = append(schema.SpecificationExtension, &v3.NamedAny{
+		Name: "x-enum-varnames",
+		Value: &v3.Any{
+			Yaml: varnamesYaml,
+		},
+	})
+
+	// Add x-enum-descriptions extension (for openapi-generator and other tools)
+	descriptionsYaml := "- " + strings.Join(descriptions, "\n- ")
+	schema.SpecificationExtension = append(schema.SpecificationExtension, &v3.NamedAny{
+		Name: "x-enum-descriptions",
+		Value: &v3.Any{
+			Yaml: descriptionsYaml,
+		},
+	})
+
+	// Add x-apifox-enum extension (Apifox specific format)
+	// Format: array of { "value": ..., "name": "...", "description": "..." }
+	var apifoxEnumParts []string
+	for i := 0; i < enumLen; i++ {
+		enumValue := enumValues.Get(i)
+		var enumValueStr string
+		if enum_type != nil && *enum_type == "string" {
+			enumValueStr = fmt.Sprintf("\"%s\"", string(enumValue.Name()))
+		} else {
+			enumValueStr = fmt.Sprintf("%d", enumValue.Number())
+		}
+		name := varnames[i]
+		description := descriptions[i]
+		apifoxEnumParts = append(apifoxEnumParts, fmt.Sprintf("- value: %s\n  name: %s\n  description: %s", enumValueStr, name, description))
+	}
+	apifoxEnumYaml := strings.Join(apifoxEnumParts, "\n")
+	schema.SpecificationExtension = append(schema.SpecificationExtension, &v3.NamedAny{
+		Name: "x-apifox-enum",
+		Value: &v3.Any{
+			Yaml: apifoxEnumYaml,
+		},
+	})
+
 	return &v3.SchemaOrReference{
 		Oneof: &v3.SchemaOrReference_Schema{
 			Schema: schema}}
