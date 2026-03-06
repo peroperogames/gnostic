@@ -244,9 +244,12 @@ func (g *OpenAPIv3Generator) buildDocumentV3() *v3.Document {
 	return d
 }
 
-// filterCommentString removes linter rules from comments.
+// filterCommentString removes linter rules and special markers from comments.
 func (g *OpenAPIv3Generator) filterCommentString(c protogen.Comments) string {
 	comment := g.linterRulePattern.ReplaceAllString(string(c), "")
+	// Remove @sse marker from the description
+	comment = strings.ReplaceAll(comment, "@sse ", "")
+	comment = strings.ReplaceAll(comment, "@sse", "")
 	return strings.TrimSpace(comment)
 }
 
@@ -445,6 +448,7 @@ func (g *OpenAPIv3Generator) buildOperationV3(
 	bodyField string,
 	inputMessage *protogen.Message,
 	outputMessage *protogen.Message,
+	isSSE bool,
 ) (*v3.Operation, string) {
 	// coveredParameters tracks the parameters that have been used in the body or path.
 	coveredParameters := make([]string, 0)
@@ -554,10 +558,16 @@ func (g *OpenAPIv3Generator) buildOperationV3(
 	}
 
 	// Create the response.
-	name, content := g.reflect.responseContentForMessage(outputMessage.Desc)
-	if *g.conf.Wrap {
-
-		name, content = g.reflect.responseWarpContentForMessage(outputMessage.Desc)
+	var name string
+	var content *v3.MediaTypes
+	if isSSE {
+		// SSE: use text/event-stream content type with x-apifox-content-schema extension
+		name, content = g.reflect.responseSSEContentForMessage(outputMessage.Desc)
+	} else {
+		name, content = g.reflect.responseContentForMessage(outputMessage.Desc)
+		if *g.conf.Wrap {
+			name, content = g.reflect.responseWarpContentForMessage(outputMessage.Desc)
+		}
 	}
 
 	responses := &v3.Responses{
@@ -756,8 +766,11 @@ func (g *OpenAPIv3Generator) addPathsToDocumentV3(d *v3.Document, services []*pr
 				if methodName != "" {
 					defaultHost := proto.GetExtension(service.Desc.Options(), annotations.E_DefaultHost).(string)
 
+					// Detect @sse marker in method's leading comment
+					isSSE := strings.Contains(string(method.Comments.Leading), "@sse")
+
 					op, path2 := g.buildOperationV3(
-						d, operationID, service.GoName, comment, defaultHost, path, body, inputMessage, outputMessage)
+						d, operationID, service.GoName, comment, defaultHost, path, body, inputMessage, outputMessage, isSSE)
 
 					// Merge any `Operation` annotations with the current
 					extOperation := proto.GetExtension(method.Desc.Options(), v3.E_Operation)

@@ -296,3 +296,50 @@ func (r *OpenAPIv3Reflector) responseWarpContentForMessage(desc protoreflect.Mes
 
 	return "200", wk.NewApplicationJsonMediaType(body)
 }
+
+// responseSSEContentForMessage generates a SSE (Server-Sent Events) response content.
+// Uses the same wrap structure as responseWarpContentForMessage (data/code/msg/reason)
+// but with text/event-stream content-type instead of application/json.
+func (r *OpenAPIv3Reflector) responseSSEContentForMessage(desc protoreflect.MessageDescriptor) (string, *v3.MediaTypes) {
+	typeName := r.fullMessageTypeName(desc)
+
+	if typeName == ".google.protobuf.Empty" {
+		return "200", &v3.MediaTypes{}
+	}
+
+	if typeName == ".google.api.HttpBody" {
+		return "200", wk.NewGoogleApiHttpBodyMediaType()
+	}
+
+	body := r.schemaOrReferenceForMessage(desc)
+	// Wrap the response in the same structure as responseWarpContentForMessage
+	p := &v3.Properties{}
+	p.AdditionalProperties = make([]*v3.NamedSchemaOrReference, 4)
+	p.AdditionalProperties[0] = &v3.NamedSchemaOrReference{
+		Name:  "data",
+		Value: body,
+	}
+	p.AdditionalProperties[1] = &v3.NamedSchemaOrReference{
+		Name:  "code",
+		Value: wk.NewIntegerSchema("int32"),
+	}
+	p.AdditionalProperties[2] = &v3.NamedSchemaOrReference{
+		Name:  "msg",
+		Value: wk.NewStringSchema(),
+	}
+	p.AdditionalProperties[3] = &v3.NamedSchemaOrReference{
+		Name:  "reason",
+		Value: wk.NewStringSchema(),
+	}
+	body = &v3.SchemaOrReference{
+		Oneof: &v3.SchemaOrReference_Schema{
+			Schema: &v3.Schema{
+				Type:       "object",
+				Properties: p,
+			},
+		},
+	}
+
+	// Only difference from responseWarpContentForMessage: use text/event-stream instead of application/json
+	return "200", wk.NewTextEventStreamMediaType(body)
+}

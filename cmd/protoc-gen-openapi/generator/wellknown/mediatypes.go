@@ -42,3 +42,18 @@ func NewApplicationJsonMediaType(schema *v3.SchemaOrReference) *v3.MediaTypes {
 		},
 	}
 }
+
+// NewTextEventStreamMediaType creates a media type for SSE (Server-Sent Events).
+// Same schema structure as application/json, but with text/event-stream content-type.
+func NewTextEventStreamMediaType(schema *v3.SchemaOrReference) *v3.MediaTypes {
+	return &v3.MediaTypes{
+		AdditionalProperties: []*v3.NamedMediaType{
+			{
+				Name: "text/event-stream",
+				Value: &v3.MediaType{
+					Schema: schema,
+				},
+			},
+		},
+	}
+}
