@@ -6,7 +6,7 @@ Protocol Buffer service.
 
 Installation:
 
-    go install github.com/peroperogames/gnostic/cmd/protoc-gen-openapi
+    go install github.com/peroperogames/gnostic/cmd/protoc-gen-openapi@latest
 
 Usage:
 
