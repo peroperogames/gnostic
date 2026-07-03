@@ -4,50 +4,24 @@
 openapi: 3.0.3
 info:
     title: Messaging API
-    description: Messaging service
     version: 0.0.1
 paths:
     /v1/messages/{message_id}:
-        post:
+        patch:
             tags:
                 - Messaging
-            operationId: Messaging_CreateMessage
+            operationId: Messaging_UpdateMessage
             parameters:
                 - name: message_id
                   in: path
                   required: true
                   schema:
                     type: string
-                - name: kind
-                  in: query
-                  schema:
-                    enum:
-                        - 0
-                        - 1
-                        - 2
-                    type: integer
-                    format: enum
-                    x-enum-varnames:
-                        - UNKNOWN_KIND
-                        - KIND_1
-                        - KIND_2
-                    x-enum-descriptions:
-                        - UNKNOWN_KIND
-                        - KIND_1
-                        - KIND_2
-                    x-apifox-enum:
-                        - value: 0
-                          name: UNKNOWN_KIND
-                          description: UNKNOWN_KIND
-                        - value: 1
-                          name: KIND_1
-                          description: KIND_1
-                        - value: 2
-                          name: KIND_2
-                          description: KIND_2
             requestBody:
                 content:
-                    application/json: {}
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/tests.allofwrap.message.v1.Message'
                 required: true
             responses:
                 "200":
@@ -55,16 +29,16 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/Message'
+                                $ref: '#/components/schemas/tests.allofwrap.message.v1.Message'
                 default:
                     description: Default error response
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/Status'
+                                $ref: '#/components/schemas/google.rpc.Status'
 components:
     schemas:
-        GoogleProtobufAny:
+        google.protobuf.Any:
             type: object
             properties:
                 '@type':
@@ -72,35 +46,7 @@ components:
                     description: The type of the serialized message.
             additionalProperties: true
             description: Contains an arbitrary serialized message along with a @type that describes the type of the serialized message.
-        Message:
-            type: object
-            properties:
-                kind:
-                    enum:
-                        - 0
-                        - 1
-                        - 2
-                    type: integer
-                    format: enum
-                    x-enum-varnames:
-                        - UNKNOWN_KIND
-                        - KIND_1
-                        - KIND_2
-                    x-enum-descriptions:
-                        - UNKNOWN_KIND
-                        - KIND_1
-                        - KIND_2
-                    x-apifox-enum:
-                        - value: 0
-                          name: UNKNOWN_KIND
-                          description: UNKNOWN_KIND
-                        - value: 1
-                          name: KIND_1
-                          description: KIND_1
-                        - value: 2
-                          name: KIND_2
-                          description: KIND_2
-        Status:
+        google.rpc.Status:
             type: object
             properties:
                 code:
@@ -113,8 +59,36 @@ components:
                 details:
                     type: array
                     items:
-                        $ref: '#/components/schemas/GoogleProtobufAny'
+                        $ref: '#/components/schemas/google.protobuf.Any'
                     description: A list of messages that carry the error details.  There is a common set of message types for APIs to use.
             description: 'The `Status` type defines a logical error model that is suitable for different programming environments, including REST APIs and RPC APIs. It is used by [gRPC](https://github.com/grpc). Each `Status` message contains three pieces of data: error code, error message, and error details. You can find out more about this error model and how to work with it in the [API Design Guide](https://cloud.google.com/apis/design/errors).'
+        tests.allofwrap.message.v1.Message:
+            type: object
+            properties:
+                sub:
+                    $ref: '#/components/schemas/tests.allofwrap.message.v1.Message_Sub'
+                subInput:
+                    writeOnly: true
+                    allOf:
+                        - $ref: '#/components/schemas/tests.allofwrap.message.v1.Message_Sub'
+                subOutput:
+                    readOnly: true
+                    allOf:
+                        - $ref: '#/components/schemas/tests.allofwrap.message.v1.Message_Sub'
+                subDesc:
+                    allOf:
+                        - $ref: '#/components/schemas/tests.allofwrap.message.v1.Message_Sub'
+                    description: this sub has a description
+                subs:
+                    readOnly: true
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/tests.allofwrap.message.v1.Message_Sub'
+                    description: test repeated, should not allof wrapped
+        tests.allofwrap.message.v1.Message_Sub:
+            type: object
+            properties:
+                content:
+                    type: string
 tags:
     - name: Messaging

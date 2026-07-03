@@ -27,6 +27,24 @@ paths:
                         - KIND_2
                     type: string
                     format: enum
+                    x-enum-varnames:
+                        - UNKNOWN_KIND
+                        - KIND_1
+                        - KIND_2
+                    x-enum-descriptions:
+                        - UNKNOWN_KIND
+                        - KIND_1
+                        - KIND_2
+                    x-apifox-enum:
+                        - value: "UNKNOWN_KIND"
+                          name: UNKNOWN_KIND
+                          description: UNKNOWN_KIND
+                        - value: "KIND_1"
+                          name: KIND_1
+                          description: KIND_1
+                        - value: "KIND_2"
+                          name: KIND_2
+                          description: KIND_2
             requestBody:
                 content:
                     application/json: {}
@@ -64,6 +82,24 @@ components:
                         - KIND_2
                     type: string
                     format: enum
+                    x-enum-varnames:
+                        - UNKNOWN_KIND
+                        - KIND_1
+                        - KIND_2
+                    x-enum-descriptions:
+                        - UNKNOWN_KIND
+                        - KIND_1
+                        - KIND_2
+                    x-apifox-enum:
+                        - value: "UNKNOWN_KIND"
+                          name: UNKNOWN_KIND
+                          description: UNKNOWN_KIND
+                        - value: "KIND_1"
+                          name: KIND_1
+                          description: KIND_1
+                        - value: "KIND_2"
+                          name: KIND_2
+                          description: KIND_2
         Status:
             type: object
             properties:

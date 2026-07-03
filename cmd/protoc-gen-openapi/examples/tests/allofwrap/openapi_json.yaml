@@ -4,50 +4,24 @@
 openapi: 3.0.3
 info:
     title: Messaging API
-    description: Messaging service
-    version: 0.0.1
+    version: 1.2.3
 paths:
     /v1/messages/{message_id}:
-        post:
+        patch:
             tags:
                 - Messaging
-            operationId: Messaging_CreateMessage
+            operationId: Messaging_UpdateMessage
             parameters:
                 - name: message_id
                   in: path
                   required: true
                   schema:
                     type: string
-                - name: kind
-                  in: query
-                  schema:
-                    enum:
-                        - 0
-                        - 1
-                        - 2
-                    type: integer
-                    format: enum
-                    x-enum-varnames:
-                        - UNKNOWN_KIND
-                        - KIND_1
-                        - KIND_2
-                    x-enum-descriptions:
-                        - UNKNOWN_KIND
-                        - KIND_1
-                        - KIND_2
-                    x-apifox-enum:
-                        - value: 0
-                          name: UNKNOWN_KIND
-                          description: UNKNOWN_KIND
-                        - value: 1
-                          name: KIND_1
-                          description: KIND_1
-                        - value: 2
-                          name: KIND_2
-                          description: KIND_2
             requestBody:
                 content:
-                    application/json: {}
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/Message'
                 required: true
             responses:
                 "200":
@@ -75,31 +49,31 @@ components:
         Message:
             type: object
             properties:
-                kind:
-                    enum:
-                        - 0
-                        - 1
-                        - 2
-                    type: integer
-                    format: enum
-                    x-enum-varnames:
-                        - UNKNOWN_KIND
-                        - KIND_1
-                        - KIND_2
-                    x-enum-descriptions:
-                        - UNKNOWN_KIND
-                        - KIND_1
-                        - KIND_2
-                    x-apifox-enum:
-                        - value: 0
-                          name: UNKNOWN_KIND
-                          description: UNKNOWN_KIND
-                        - value: 1
-                          name: KIND_1
-                          description: KIND_1
-                        - value: 2
-                          name: KIND_2
-                          description: KIND_2
+                sub:
+                    $ref: '#/components/schemas/Message_Sub'
+                subInput:
+                    writeOnly: true
+                    allOf:
+                        - $ref: '#/components/schemas/Message_Sub'
+                subOutput:
+                    readOnly: true
+                    allOf:
+                        - $ref: '#/components/schemas/Message_Sub'
+                subDesc:
+                    allOf:
+                        - $ref: '#/components/schemas/Message_Sub'
+                    description: this sub has a description
+                subs:
+                    readOnly: true
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Message_Sub'
+                    description: test repeated, should not allof wrapped
+        Message_Sub:
+            type: object
+            properties:
+                content:
+                    type: string
         Status:
             type: object
             properties:

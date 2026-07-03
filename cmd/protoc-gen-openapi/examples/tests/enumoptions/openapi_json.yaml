@@ -21,8 +21,30 @@ paths:
                 - name: kind
                   in: query
                   schema:
+                    enum:
+                        - 0
+                        - 1
+                        - 2
                     type: integer
                     format: enum
+                    x-enum-varnames:
+                        - UNKNOWN_KIND
+                        - KIND_1
+                        - KIND_2
+                    x-enum-descriptions:
+                        - UNKNOWN_KIND
+                        - KIND_1
+                        - KIND_2
+                    x-apifox-enum:
+                        - value: 0
+                          name: UNKNOWN_KIND
+                          description: UNKNOWN_KIND
+                        - value: 1
+                          name: KIND_1
+                          description: KIND_1
+                        - value: 2
+                          name: KIND_2
+                          description: KIND_2
             requestBody:
                 content:
                     application/json: {}
@@ -54,8 +76,30 @@ components:
             type: object
             properties:
                 kind:
+                    enum:
+                        - 0
+                        - 1
+                        - 2
                     type: integer
                     format: enum
+                    x-enum-varnames:
+                        - UNKNOWN_KIND
+                        - KIND_1
+                        - KIND_2
+                    x-enum-descriptions:
+                        - UNKNOWN_KIND
+                        - KIND_1
+                        - KIND_2
+                    x-apifox-enum:
+                        - value: 0
+                          name: UNKNOWN_KIND
+                          description: UNKNOWN_KIND
+                        - value: 1
+                          name: KIND_1
+                          description: KIND_1
+                        - value: 2
+                          name: KIND_2
+                          description: KIND_2
         Status:
             type: object
             properties:
