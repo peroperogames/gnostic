@@ -735,7 +735,7 @@ func (g *OpenAPIv3Generator) addPathsToDocumentV3(d *v3.Document, services []*pr
 				rules = append(rules, rule.AdditionalBindings...)
 			}
 
-			for _, rule := range rules {
+			for i, rule := range rules {
 				var path string
 				var methodName string
 				var body string
@@ -764,13 +764,18 @@ func (g *OpenAPIv3Generator) addPathsToDocumentV3(d *v3.Document, services []*pr
 				}
 
 				if methodName != "" {
+					opID := operationID
+					if i > 0 {
+						// operationId must be unique (OpenAPI v3.0.3 4.7.10.1)
+						opID = fmt.Sprintf("%s_%d", operationID, i+1)
+					}
 					defaultHost := proto.GetExtension(service.Desc.Options(), annotations.E_DefaultHost).(string)
 
 					// Detect @sse marker in method's leading comment
 					isSSE := strings.Contains(string(method.Comments.Leading), "@sse")
 
 					op, path2 := g.buildOperationV3(
-						d, operationID, service.GoName, comment, defaultHost, path, body, inputMessage, outputMessage, isSSE)
+						d, opID, service.GoName, comment, defaultHost, path, body, inputMessage, outputMessage, isSSE)
 
 					// Merge any `Operation` annotations with the current
 					extOperation := proto.GetExtension(method.Desc.Options(), v3.E_Operation)
