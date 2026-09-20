@@ -151,11 +151,48 @@ type generatedTypeInfo struct {
 	optionalPrimitiveTypeInfo *primitiveTypeInfo
 }
 
+// defaultImportPathPrefix is used to build import paths in generated code when
+// the output directory is not inside a module.
+const defaultImportPathPrefix = "github.com/google/gnostic"
+
+var modulePathPattern = regexp.MustCompile(`(?m)^module\s+(\S+)`)
+
+// importPathPrefixForDirectory returns the module path declared by the go.mod
+// file that governs the specified directory.
+//
+// A generated extension handler is written inside that module and imports the
+// module's compiler and extensions packages as well as its own generated proto
+// package, so the import paths emitted into the generated code must be
+// prefixed with that module path. Deriving it here rather than hardcoding it
+// keeps the generated code buildable in any checkout of this tool, including
+// forks that renamed the module.
+func importPathPrefixForDirectory(directory string) string {
+	absolute, err := filepath.Abs(directory)
+	if err != nil {
+		return defaultImportPathPrefix
+	}
+	for {
+		contents, err := ioutil.ReadFile(filepath.Join(absolute, "go.mod"))
+		if err == nil {
+			if matches := modulePathPattern.FindSubmatch(contents); matches != nil {
+				return string(matches[1])
+			}
+			return defaultImportPathPrefix
+		}
+		parent := filepath.Dir(absolute)
+		if parent == absolute {
+			return defaultImportPathPrefix
+		}
+		absolute = parent
+	}
+}
+
 // generateExtension generates the implementation of an extension.
 func generateExtension(schemaFile string, outDir string) error {
 	outFileBaseName := getBaseFileNameWithoutExt(schemaFile)
 	extensionNameWithoutXDashPrefix := outFileBaseName[len("x-"):]
 	outDir = path.Join(outDir, "gnostic-x-"+extensionNameWithoutXDashPrefix)
+	importPathPrefix := importPathPrefixForDirectory(outDir)
 	protoPackage := toProtoPackageName(extensionNameWithoutXDashPrefix)
 	protoPackageName := strings.ToLower(protoPackage)
 	goPackageName := protoPackageName
@@ -272,7 +309,7 @@ func generateExtension(schemaFile string, outDir string) error {
 		"fmt",
 		"regexp",
 		"strings",
-		"github.com/google/gnostic/compiler",
+		importPathPrefix + "/compiler",
 		"go.yaml.in/yaml/v3",
 	})
 	goFilename := path.Join(protoOutDirectory, outFileBaseName+".go")
@@ -287,10 +324,11 @@ func generateExtension(schemaFile string, outDir string) error {
 
 	// generate the main file.
 
-	// TODO: This path is currently fixed to the location of the samples.
-	//       Can we make it relative, perhaps with an option or by generating
-	//       a go.mod file for the generated extension handler?
-	outDirRelativeToPackageRoot := "github.com/google/gnostic/extensions/sample/" + outDir
+	// TODO: The subdirectory portion of this path is still fixed to the location
+	//       of the samples. The module portion is derived from the go.mod of the
+	//       enclosing module so that generated code also builds in a checkout
+	//       whose module path differs from upstream's.
+	outDirRelativeToPackageRoot := importPathPrefix + "/extensions/sample/" + outDir
 
 	var extensionNameKeys []string
 	for k := range extensionNameToMessageName {
@@ -316,8 +354,8 @@ func generateExtension(schemaFile string, outDir string) error {
 	}
 	extMainCode := fmt.Sprintf(additionalCompilerCodeWithMain, cases)
 	imports := []string{
-		"github.com/google/gnostic/extensions",
-		"github.com/google/gnostic/compiler",
+		importPathPrefix + "/extensions",
+		importPathPrefix + "/compiler",
 		"google.golang.org/protobuf/proto",
 		"go.yaml.in/yaml/v3",
 		outDirRelativeToPackageRoot + "/" + "proto",
