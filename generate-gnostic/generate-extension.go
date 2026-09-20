@@ -151,37 +151,38 @@ type generatedTypeInfo struct {
 	optionalPrimitiveTypeInfo *primitiveTypeInfo
 }
 
-// defaultImportPathPrefix is used to build import paths in generated code when
-// the output directory is not inside a module.
-const defaultImportPathPrefix = "github.com/google/gnostic"
+// modulePathPattern matches the module directive of a go.mod file. The path may
+// be quoted and may be followed by a comment; it is always unquoted in an import
+// path.
+var modulePathPattern = regexp.MustCompile(`(?m)^module[ \t]+"?([^"\s]+)"?`)
 
-var modulePathPattern = regexp.MustCompile(`(?m)^module\s+(\S+)`)
-
-// importPathPrefixForDirectory returns the module path declared by the go.mod
-// file that governs the specified directory.
+// moduleForDirectory walks up from the specified directory to the module that
+// contains it, returning the module's root directory and its module path.
 //
-// A generated extension handler is written inside that module and imports the
+// A generated extension handler lives inside that module and imports the
 // module's compiler and extensions packages as well as its own generated proto
-// package, so the import paths emitted into the generated code must be
-// prefixed with that module path. Deriving it here rather than hardcoding it
-// keeps the generated code buildable in any checkout of this tool, including
-// forks that renamed the module.
-func importPathPrefixForDirectory(directory string) string {
+// package, so the import paths written into the generated code are built from
+// the module path and the position of the output directory inside the module.
+// Deriving both here instead of hardcoding upstream's path keeps the generated
+// code buildable in any checkout of this tool, including forks that renamed the
+// module, and independent of the working directory the tool is run from.
+func moduleForDirectory(directory string) (root string, modulePath string, ok bool) {
 	absolute, err := filepath.Abs(directory)
 	if err != nil {
-		return defaultImportPathPrefix
+		return "", "", false
 	}
 	for {
 		contents, err := ioutil.ReadFile(filepath.Join(absolute, "go.mod"))
 		if err == nil {
-			if matches := modulePathPattern.FindSubmatch(contents); matches != nil {
-				return string(matches[1])
+			matches := modulePathPattern.FindSubmatch(contents)
+			if matches == nil {
+				return "", "", false
 			}
-			return defaultImportPathPrefix
+			return absolute, string(matches[1]), true
 		}
 		parent := filepath.Dir(absolute)
 		if parent == absolute {
-			return defaultImportPathPrefix
+			return "", "", false
 		}
 		absolute = parent
 	}
@@ -192,7 +193,6 @@ func generateExtension(schemaFile string, outDir string) error {
 	outFileBaseName := getBaseFileNameWithoutExt(schemaFile)
 	extensionNameWithoutXDashPrefix := outFileBaseName[len("x-"):]
 	outDir = path.Join(outDir, "gnostic-x-"+extensionNameWithoutXDashPrefix)
-	importPathPrefix := importPathPrefixForDirectory(outDir)
 	protoPackage := toProtoPackageName(extensionNameWithoutXDashPrefix)
 	protoPackageName := strings.ToLower(protoPackage)
 	goPackageName := protoPackageName
@@ -268,6 +268,26 @@ func generateExtension(schemaFile string, outDir string) error {
 		return compiler.NewErrorGroupOrNil(schemaErrors)
 	}
 
+	// The generated handler imports this module's compiler and extensions
+	// packages as well as its own generated proto package, so the output
+	// directory has to sit inside a module whose path we can determine.
+	absoluteOutDir, err := filepath.Abs(outDir)
+	if err != nil {
+		return err
+	}
+	moduleRoot, modulePath, ok := moduleForDirectory(absoluteOutDir)
+	if !ok {
+		return fmt.Errorf("output directory %s is not inside a Go module: "+
+			"cannot determine the import paths of the generated code", outDir)
+	}
+	moduleRelativeOutDir, err := filepath.Rel(moduleRoot, absoluteOutDir)
+	if err != nil {
+		return err
+	}
+	// The import path of the generated handler's own package, for example
+	// "github.com/example/project/extensions/sample/generated/gnostic-x-demo".
+	generatedPackagePath := modulePath + "/" + filepath.ToSlash(moduleRelativeOutDir)
+
 	err = os.MkdirAll(outDir, os.ModePerm)
 	if err != nil {
 		return err
@@ -309,7 +329,7 @@ func generateExtension(schemaFile string, outDir string) error {
 		"fmt",
 		"regexp",
 		"strings",
-		importPathPrefix + "/compiler",
+		modulePath + "/compiler",
 		"go.yaml.in/yaml/v3",
 	})
 	goFilename := path.Join(protoOutDirectory, outFileBaseName+".go")
@@ -323,12 +343,6 @@ func generateExtension(schemaFile string, outDir string) error {
 	}
 
 	// generate the main file.
-
-	// TODO: The subdirectory portion of this path is still fixed to the location
-	//       of the samples. The module portion is derived from the go.mod of the
-	//       enclosing module so that generated code also builds in a checkout
-	//       whose module path differs from upstream's.
-	outDirRelativeToPackageRoot := importPathPrefix + "/extensions/sample/" + outDir
 
 	var extensionNameKeys []string
 	for k := range extensionNameToMessageName {
@@ -354,11 +368,11 @@ func generateExtension(schemaFile string, outDir string) error {
 	}
 	extMainCode := fmt.Sprintf(additionalCompilerCodeWithMain, cases)
 	imports := []string{
-		importPathPrefix + "/extensions",
-		importPathPrefix + "/compiler",
+		modulePath + "/extensions",
+		modulePath + "/compiler",
 		"google.golang.org/protobuf/proto",
 		"go.yaml.in/yaml/v3",
-		outDirRelativeToPackageRoot + "/" + "proto",
+		generatedPackagePath + "/proto",
 	}
 	if wrapperTypeIncluded {
 		imports = append(imports, "google.golang.org/protobuf/types/known/wrapperspb")
